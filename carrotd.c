@@ -150,6 +150,10 @@ wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
 	
 int dict_add(dict_t *d, wordlist_t *w) {
 	int ret = -1;
+	for(int i = 0; i < w->num; i++) {
+		w->w[i] = stringidx(&(d->strings), w->w[i]);
+	}
+
 	pthread_mutex_lock(&(d->write));
 	while(d->readers > 0) {
 		pthread_cond_wait(&(d->noreaders), &(d->write));
