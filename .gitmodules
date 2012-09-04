@@ -1,0 +1,3 @@
+[submodule "marcov"]
+	path = marcov
+	url = git://github.com/Cat-Ion/marcov.git
