@@ -282,9 +282,65 @@ int main(int argc, char **argv) {
 		message_t msg;
 		if(cfd < 0)
 			break;
+		/* TODO: Use select() etc */
+		while(read(cfd, &msg, sizeof(msg))) {
+			int result;
+			wordlist_t w, *reply = NULL;
+			char *txtdata = malloc(msg.length - sizeof(msg) + sizeof(msg.length));
+		
+			int txti = 0;
+			read(cfd, txtdata, msg.length - sizeof(msg) + sizeof(msg.length));
+			
+			w.num = msg.data;
+			w.w = malloc(w.num * sizeof(char *));
+			for(int i = 0; i < w.num; i++) {
+				w.w[i] = txtdata + txti + sizeof(int);
+				txti += 1 + *(int32_t*)(txtdata + i);
+			}
 
-		read(cfd, &msg, sizeof(msg));
-		/* TODO: Read words, handle message */
+			if((msg.type == MESSAGE_TYPE_REQUEST ||
+			    msg.type == MESSAGE_TYPE_DEL ||
+			    msg.type == MESSAGE_TYPE_ADD ||
+			    msg.type == MESSAGE_TYPE_SAVE) &&
+			   (msg.dict < 0 || msg.dict >= status.numdicts)) {
+				result = -1;
+			} else switch(msg.type) {
+				case MESSAGE_TYPE_REQUEST:
+					reply = dict_predict(status.dicts + msg.dict, &w, msg.data);
+					result = reply == NULL ? -1 : reply->num;
+					break;
+				case MESSAGE_TYPE_ADD:
+					result = dict_add(status.dicts + msg.dict, &w);
+					break;
+				case MESSAGE_TYPE_DEL:
+					result = dict_del(status.dicts + msg.dict, &w);
+					break;
+				case MESSAGE_TYPE_LOAD:
+					result = dict_load(&(status.numdicts), &(status.dicts), w.w[0]);
+					break;
+				case MESSAGE_TYPE_SAVE:
+					result = dict_save(status.dicts + msg.dict, msg.data > 0 ? w.w[0] : status.dicts[msg.dict].path);
+					break;
+			}
+
+			message_t answer = (message_t) {
+				.length = sizeof(message_t) - 4,
+				.id = msg.id,
+				.type = result >= 0 ? msg.type : -1,
+				.dict = msg.type == MESSAGE_TYPE_LOAD ? result : msg.dict,
+				.data = msg.type == MESSAGE_TYPE_REQUEST ? result : 0
+			};
+
+			write(cfd, &answer, sizeof(message_t));
+
+			if(msg.type == MESSAGE_TYPE_REQUEST) for(int i = 0; i < result; i++) {
+					int32_t len = strlen(reply->w[i]);
+					write(cfd, &len, sizeof(int32_t));
+					write(cfd, reply->w[i], len + 1);
+			}
+
+			free(txtdata);
+		}
 	}
 
 	return 0;
