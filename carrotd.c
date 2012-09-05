@@ -71,12 +71,12 @@ int twalk_predict(const void *node, VISIT v, int depth, void *data) {
 
 	int cmp = strncmp(s->prefix, m->key, strlen(s->prefix));
 	
-	if(cmp > 0) {
+	if(cmp < 0) {
 		return 0;
 	} else if(cmp == 0) {
 		int i;
 		for(i = s->n - 1;
-		    i >= 0 && (m->total > s->d[i].n || !(s->d[i].key));
+		    i >= 0 && (s->d[i].key == NULL || m->total > s->d[i].n);
 		    i--) {
 			s->d[i+1] = s->d[i];
 		}
@@ -143,6 +143,7 @@ wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
 
 	r->num = 0;
 	for(int i = 0; i < num && walkdata.d[i].n > 0; i++) {
+		r->num++;
 		r->w[i] = walkdata.d[i].key;
 	}
 	return r;
