@@ -113,6 +113,10 @@ wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
 	pthread_mutex_lock(&(d->write));
 	d->readers++;
 	pthread_mutex_unlock(&(d->write));
+
+	if(prefixlen > w->num - 1) {
+		prefixlen = w->num - 1;
+	}
 	
 	do {
 		w->num--;
