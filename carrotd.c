@@ -10,7 +10,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "marcov/markov.h"
+#include "marcov/marcov.h"
 
 #define EVERRRRRRRR (;;)
 
@@ -31,7 +31,7 @@ typedef struct {
 	pthread_mutex_t write;
 
 	char *path;
-	markov_t *markov;
+	marcov_t *marcov;
 	void *strings;
 } dict_t;
 
@@ -67,7 +67,7 @@ int twalk_predict(const void *node, VISIT v, int depth, void *data) {
 			int n;
 		} *d;
 	} *s = data;
-	markov_t *m = *(markov_t **)node;
+	marcov_t *m = *(marcov_t **)node;
 
 	int cmp = strncmp(s->prefix, m->key, strlen(s->prefix));
 	
@@ -92,8 +92,8 @@ int twalk_predict(const void *node, VISIT v, int depth, void *data) {
 }
 
 wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
-	int prefixlen = d->markov->order;
-	markov_t *n;
+	int prefixlen = d->marcov->order;
+	marcov_t *n;
 	wordlist_t *r = malloc(sizeof(wordlist_t));
 	r->num = num;
 	r->w = calloc(num, sizeof(char *));
@@ -116,14 +116,14 @@ wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
 	
 	do {
 		w->num--;
-		n = markov_find_prefix(d->markov, w, prefixlen--);
+		n = marcov_find_prefix(d->marcov, w, prefixlen--);
 		w->num++;
 		if(!n)
 			continue;
 
 		walkdata.d = calloc(num + 1, sizeof(struct{char *key; int n;}));
 		
-		markov_walk(n, twalk_predict, &walkdata);
+		marcov_walk(n, twalk_predict, &walkdata);
 
 		if(walkdata.d[0].n == 0) {
 			free(walkdata.d);
@@ -159,10 +159,10 @@ int dict_add(dict_t *d, wordlist_t *w) {
 		pthread_cond_wait(&(d->noreaders), &(d->write));
 	}
 
-	if(w->num >= d->markov->order) {
+	if(w->num >= d->marcov->order) {
 		int n = w->num;
-		for(; w->num >= d->markov->order; w->num--) {
-			markov_add(d->markov, w);
+		for(; w->num >= d->marcov->order; w->num--) {
+			marcov_add(d->marcov, w);
 		}
 		w->num = ret = n;
 	}
@@ -179,14 +179,14 @@ int dict_del(dict_t *d, wordlist_t *w) {
 	}
 	
 	wordlist_t x = (wordlist_t) {
-		.num = d->markov->order + 1,
-		.w = malloc((d->markov->order + 1) * sizeof(char*))
+		.num = d->marcov->order + 1,
+		.w = malloc((d->marcov->order + 1) * sizeof(char*))
 	};
 
-	for(int i = 0; i < w->num - d->markov->order; i++) {
+	for(int i = 0; i < w->num - d->marcov->order; i++) {
 		for(int j = 0; j < x.num; j++)
 			x.w[j] = w->w[i+j];
-		markov_dec(d->markov, &x);
+		marcov_dec(d->marcov, &x);
 	}
 
 	pthread_cond_signal(&(d->noreaders));
@@ -214,14 +214,14 @@ int dict_load(int *numdicts, dict_t **d, char *path) {
 	pthread_mutex_init(&((*d)[*numdicts - 1].write), NULL);
 	(*d)[*numdicts - 1].path = strdup(path);
 
-	(*d)[*numdicts - 1].markov = NULL;
+	(*d)[*numdicts - 1].marcov = NULL;
 	int fd = open(path, O_RDONLY);
 	if(fd == -1) {
 		*numdicts -= 1;
 		return -1;
 	}
 	(*d)[*numdicts - 1].strings = NULL;
-	markov_load(&((*d)[*numdicts - 1].strings), &((*d)[*numdicts - 1].markov), fd);
+	marcov_load(&((*d)[*numdicts - 1].strings), &((*d)[*numdicts - 1].marcov), fd);
 	close(fd);
 	return *numdicts - 1;
 }
@@ -236,7 +236,7 @@ int dict_save(dict_t *d, char *path) {
 	if(fd < 0) {
 		ret = -1;
 	} else {
-		markov_dump(d->strings, d->markov, fd);
+		marcov_dump(d->strings, d->marcov, fd);
 		close(fd);
 	}
 	
