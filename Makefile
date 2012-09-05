@@ -6,3 +6,8 @@ carrotd: carrotd.o
 
 marcov/libmarcov.a:
 	make -C marcov libmarcov.a
+
+clean:
+	rm -f carrotd.o carrotd
+
+.PHONY: clean
