@@ -369,6 +369,12 @@ int main(int argc, char **argv) {
 				.dict = msg.type == MESSAGE_TYPE_LOAD ? result : msg.dict,
 				.data = msg.type == MESSAGE_TYPE_REQUEST ? result : 0
 			};
+
+			if(msg.type == MESSAGE_TYPE_REQUEST) {
+				for(int i = 0; i < result; i++) {
+					answer.length += strlen(reply->w[i]);
+				}
+			}
 			
 			write(fd, &answer, sizeof(message_t));
 			
