@@ -143,7 +143,7 @@ wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
 	}
 	pthread_mutex_unlock(&(d->write));
 	
-	if(prefixlen < 0)
+	if(walkdata.d == NULL)
 		return NULL;
 
 	r->num = 0;
