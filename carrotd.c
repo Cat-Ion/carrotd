@@ -144,13 +144,12 @@ wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
 	}
 	pthread_mutex_unlock(&(d->write));
 	
-	if(walkdata.d == NULL)
-		return NULL;
-
 	r->num = 0;
-	for(int i = 0; i < num && walkdata.d[i].n > 0; i++) {
-		r->num++;
-		r->w[i] = walkdata.d[i].key;
+	if(walkdata.d) {
+		for(int i = 0; i < num && walkdata.d[i].n > 0; i++) {
+			r->num++;
+			r->w[i] = walkdata.d[i].key;
+		}
 	}
 	return r;
 }
