@@ -372,11 +372,15 @@ int main(int argc, char **argv) {
 			
 			write(fd, &answer, sizeof(message_t));
 			
-			if(msg.type == MESSAGE_TYPE_REQUEST) for(int i = 0; i < result; i++) {
+			if(msg.type == MESSAGE_TYPE_REQUEST) {
+				for(int i = 0; i < result; i++) {
 					int32_t len = strlen(reply->w[i]);
 					write(fd, &len, sizeof(int32_t));
 					write(fd, reply->w[i], len + 1);
 				}
+				free(reply->w);
+				free(reply);
+			}
 			
 			free(txtdata);
 		}
