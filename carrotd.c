@@ -372,7 +372,7 @@ int main(int argc, char **argv) {
 
 			if(msg.type == MESSAGE_TYPE_REQUEST) {
 				for(int i = 0; i < result; i++) {
-					answer.length += strlen(reply->w[i]);
+					answer.length += sizeof(int32_t) + strlen(reply->w[i]) + 1;
 				}
 			}
 			
