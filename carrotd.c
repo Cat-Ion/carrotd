@@ -260,8 +260,10 @@ int listen_port(int port) {
 	struct sockaddr_in sa;
 	int sfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-	if(sfd == -1)
+	if(sfd == -1) {
+		perror("socket");
 		return -1;
+	}
 
 	memset(&sa, 0, sizeof(sa));
 
@@ -269,11 +271,15 @@ int listen_port(int port) {
 	sa.sin_port = htons(port);
 	sa.sin_addr.s_addr = INADDR_ANY;
 
-	if(bind(sfd, (struct sockaddr *)&sa, sizeof(sa)) == -1)
+	if(bind(sfd, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
+		perror("bind");
 		return -1;
+	}
 
-	if(listen(sfd, 32) == -1)
+	if(listen(sfd, 32) == -1) {
+		perror("listen");
 		return -1;
+	}
 
 	return sfd;
 }
