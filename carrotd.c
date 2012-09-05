@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include "marcov/marcov.h"
 
-#define EVERRRRRRRR (;;)
+#define EVERRRRRRRR ;;
 
 enum {
 	MESSAGE_TYPE_REQUEST = 0,
@@ -290,27 +290,54 @@ int main(int argc, char **argv) {
 	status.numdicts = 0;
 	status.dicts = NULL;
 
-	for EVERRRRRRRR  {
-		int cfd = accept(status.fd, NULL, NULL);
-		message_t msg;
-		if(cfd < 0)
-			break;
-		/* TODO: Use select() etc */
-		while(read(cfd, &msg, sizeof(msg))) {
-			int result;
-			wordlist_t w, *reply = NULL;
-			char *txtdata = malloc(msg.length - sizeof(msg) + sizeof(msg.length));
-		
-			int txti = 0;
-			read(cfd, txtdata, msg.length - sizeof(msg) + sizeof(msg.length));
+	if(status.fd < 0) {
+		exit(EXIT_FAILURE);
+	}
+
+	fd_set rfds;
+	int maxfd = status.fd;
+
+	FD_SET(status.fd, &rfds);
+
+	for(EVERRRRRRRR)  {
+		fd_set tmp = rfds;
+		select(maxfd + 1, &tmp, NULL, NULL, NULL);
+		if(FD_ISSET(status.fd, &tmp)) {
+			int cfd = accept(status.fd, NULL, NULL);
+			FD_SET(cfd, &rfds);
+			if(cfd > maxfd) {
+				maxfd = cfd;
+			}
+		}
+		for(int fd = maxfd; fd > status.fd; fd--) {
+			if(!FD_ISSET(fd, &tmp)) {
+				continue;
+			}
 			
-			w.num = msg.data;
-			w.w = malloc(w.num * sizeof(char *));
-			for(int i = 0; i < w.num; i++) {
-				w.w[i] = txtdata + txti + sizeof(int);
-				txti += 1 + *(int32_t*)(txtdata + i);
+			message_t msg;
+			int result;
+			wordlist_t msgwords, *reply = NULL;
+			char *txtdata;
+			int txti = 0;
+
+			if(read(fd, &msg, sizeof(msg)) == 0) {
+				FD_CLR(fd, &rfds);
+				if(fd == maxfd) {
+					maxfd--;
+				}
+				continue;
 			}
 
+			txtdata = malloc(msg.length - sizeof(msg) + sizeof(msg.length));
+			read(fd, txtdata, msg.length - sizeof(msg) + sizeof(msg.length));
+			
+			msgwords.num = msg.data;
+			msgwords.w = malloc(msgwords.num * sizeof(char *));
+			for(int i = 0; i < msgwords.num; i++) {
+				msgwords.w[i] = txtdata + txti + sizeof(int);
+				txti += 1 + *(int32_t*)(txtdata + i);
+			}
+			
 			if((msg.type == MESSAGE_TYPE_REQUEST ||
 			    msg.type == MESSAGE_TYPE_DEL ||
 			    msg.type == MESSAGE_TYPE_ADD ||
@@ -319,23 +346,23 @@ int main(int argc, char **argv) {
 				result = -1;
 			} else switch(msg.type) {
 				case MESSAGE_TYPE_REQUEST:
-					reply = dict_predict(status.dicts + msg.dict, &w, msg.data);
+					reply = dict_predict(status.dicts + msg.dict, &msgwords, msg.data);
 					result = reply == NULL ? -1 : reply->num;
 					break;
 				case MESSAGE_TYPE_ADD:
-					result = dict_add(status.dicts + msg.dict, &w);
+					result = dict_add(status.dicts + msg.dict, &msgwords);
 					break;
 				case MESSAGE_TYPE_DEL:
-					result = dict_del(status.dicts + msg.dict, &w);
+					result = dict_del(status.dicts + msg.dict, &msgwords);
 					break;
 				case MESSAGE_TYPE_LOAD:
-					result = dict_load(&(status.numdicts), &(status.dicts), w.w[0]);
+					result = dict_load(&(status.numdicts), &(status.dicts), msgwords.w[0]);
 					break;
 				case MESSAGE_TYPE_SAVE:
-					result = dict_save(status.dicts + msg.dict, msg.data > 0 ? w.w[0] : status.dicts[msg.dict].path);
+					result = dict_save(status.dicts + msg.dict, msg.data > 0 ? msgwords.w[0] : status.dicts[msg.dict].path);
 					break;
-			}
-
+				}
+			
 			message_t answer = (message_t) {
 				.length = sizeof(message_t) - 4,
 				.id = msg.id,
@@ -343,18 +370,18 @@ int main(int argc, char **argv) {
 				.dict = msg.type == MESSAGE_TYPE_LOAD ? result : msg.dict,
 				.data = msg.type == MESSAGE_TYPE_REQUEST ? result : 0
 			};
-
-			write(cfd, &answer, sizeof(message_t));
-
+			
+			write(fd, &answer, sizeof(message_t));
+			
 			if(msg.type == MESSAGE_TYPE_REQUEST) for(int i = 0; i < result; i++) {
 					int32_t len = strlen(reply->w[i]);
-					write(cfd, &len, sizeof(int32_t));
-					write(cfd, reply->w[i], len + 1);
-			}
-
+					write(fd, &len, sizeof(int32_t));
+					write(fd, reply->w[i], len + 1);
+				}
+			
 			free(txtdata);
 		}
 	}
-
+	
 	return 0;
 }
