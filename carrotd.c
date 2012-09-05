@@ -122,8 +122,9 @@ wordlist_t *dict_predict(dict_t *d, wordlist_t *w, int num) {
 		w->num--;
 		n = marcov_find_prefix(d->marcov, w, prefixlen--);
 		w->num++;
-		if(!n)
+		if(!n) {
 			continue;
+		}
 
 		walkdata.d = calloc(num + 1, sizeof(struct{char *key; int n;}));
 		
