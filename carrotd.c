@@ -333,8 +333,8 @@ int main(int argc, char **argv) {
 			msgwords.num = msg.data;
 			msgwords.w = malloc(msgwords.num * sizeof(char *));
 			for(int i = 0; i < msgwords.num; i++) {
-				msgwords.w[i] = txtdata + txti + sizeof(int);
-				txti += 1 + *(int32_t*)(txtdata + i);
+				msgwords.w[i] = (word_t *)(txtdata + txti)->data;
+				txti += (word_t *)(txtdata + txti)->length + 1;
 			}
 			
 			if((msg.type == MESSAGE_TYPE_REQUEST ||
