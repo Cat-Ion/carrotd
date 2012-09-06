@@ -366,14 +366,23 @@ int main(int argc, char **argv) {
 				.length = sizeof(message_t) - 4,
 				.id = msg.id,
 				.type = result >= 0 ? msg.type : -1,
-				.dict = msg.type == MESSAGE_TYPE_LOAD ? result : msg.dict,
-				.data = msg.type == MESSAGE_TYPE_REQUEST ? result : 0
+				.dict = msg.dict,
+				.data = 0
 			};
-
-			if(msg.type == MESSAGE_TYPE_REQUEST) {
+			
+			switch(msg.type) {
+			case MESSAGE_TYPE_LOAD:
+				answer.dict = result;
+				answer.data = status.dicts[result].marcov->order;
+				break;
+			case MESSAGE_TYPE_REQUEST:
+				answer.data = result;
+				
+				answer.length += (sizeof(int32_t) + 1) * result;
 				for(int i = 0; i < result; i++) {
-					answer.length += sizeof(int32_t) + strlen(reply->w[i]) + 1;
+					answer.length += strlen(reply->w[i]);
 				}
+				break;
 			}
 			
 			write(fd, &answer, sizeof(message_t));
