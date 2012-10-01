@@ -21,7 +21,9 @@ enum {
 	MESSAGE_TYPE_DEL     = 2,
 	MESSAGE_TYPE_LOAD    = 3,
 	MESSAGE_TYPE_SAVE    = 4,
-	MESSAGE_TYPE_NUM     = 5
+	MESSAGE_TYPE_ORDER   = 5,
+	MESSAGE_TYPE_NEW     = 6,
+	MESSAGE_TYPE_NUM     = 7
 };
 
 typedef struct {
@@ -49,8 +51,8 @@ typedef struct {
 	                   answer to MESSAGE_TYPE_LOAD, valid for all
 	                   commands except for LOAD */
 	int32_t data;   /* Number of words following the message for
-	                   ADD/CHANGE/DEL, or number of expected
-	                   completions for REQUEST */
+	                   ADD/DEL, or number of expected completions for
+	                   REQUEST. 1 for LOAD and SAVE. */
 } message_t;
 
 struct status_s {
@@ -231,6 +233,35 @@ int dict_load(int *numdicts, dict_t **d, char *path) {
 	close(fd);
 	return *numdicts - 1;
 }
+int dict_new(int *numdicts, dict_t **d, char *path) {
+	for(int i = 0; i < *numdicts; i++) {
+		if(!strcmp((*d)[i].path, path)) {
+			return i;
+		}
+	}
+	*numdicts += 1;
+	
+	dict_t *tmp = realloc(*d, *numdicts * sizeof(dict_t));
+	if(!tmp) {
+		return -1;
+	}
+
+	*d = tmp;
+
+	clock_gettime(CLOCK_REALTIME, &((*d)[*numdicts-1].lastwrite));
+	(*d)[*numdicts - 1].readers = 0;
+	pthread_cond_init(&((*d)[*numdicts - 1].noreaders), NULL);
+	pthread_mutex_init(&((*d)[*numdicts - 1].write), NULL);
+	(*d)[*numdicts - 1].path = strdup(path);
+
+	(*d)[*numdicts - 1].marcov = calloc(1, sizeof(marcov_t));
+	(*d)[*numdicts - 1].marcov->key = NULL;
+	(*d)[*numdicts - 1].marcov->order = 2;
+	(*d)[*numdicts - 1].marcov->total = 0;
+	(*d)[*numdicts - 1].marcov->tree = NULL;
+	(*d)[*numdicts - 1].strings = NULL;
+	return *numdicts - 1;
+}
 
 int dict_save(dict_t *d, char *path) {
 	int ret = -1;
@@ -340,7 +371,8 @@ int main(int argc, char **argv) {
 			if((msg.type == MESSAGE_TYPE_REQUEST ||
 			    msg.type == MESSAGE_TYPE_DEL ||
 			    msg.type == MESSAGE_TYPE_ADD ||
-			    msg.type == MESSAGE_TYPE_SAVE) &&
+			    msg.type == MESSAGE_TYPE_SAVE ||
+			    msg.type == MESSAGE_TYPE_ORDER) &&
 			   (msg.dict < 0 || msg.dict >= status.numdicts)) {
 				result = -1;
 			} else switch(msg.type) {
@@ -360,6 +392,12 @@ int main(int argc, char **argv) {
 				case MESSAGE_TYPE_SAVE:
 					result = dict_save(status.dicts + msg.dict, msg.data > 0 ? msgwords.w[0] : status.dicts[msg.dict].path);
 					break;
+				case MESSAGE_TYPE_ORDER:
+					result = status.dicts[msg.dict].marcov->order;
+					break;
+				case MESSAGE_TYPE_NEW:
+					result = dict_new(&(status.numdicts), &(status.dicts), msgwords.w[0]);
+					break;
 				}
 			
 			message_t answer = (message_t) {
@@ -372,6 +410,7 @@ int main(int argc, char **argv) {
 			
 			switch(msg.type) {
 			case MESSAGE_TYPE_LOAD:
+			case MESSAGE_TYPE_NEW:
 				answer.dict = result;
 				answer.data = status.dicts[result].marcov->order;
 				break;
@@ -382,6 +421,9 @@ int main(int argc, char **argv) {
 				for(int i = 0; i < result; i++) {
 					answer.length += strlen(reply->w[i]);
 				}
+				break;
+			case MESSAGE_TYPE_ORDER:
+				answer.data = result;
 				break;
 			}
 			
